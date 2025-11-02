@@ -4,71 +4,80 @@
 
 set -e  # Exit on error
 
+# Paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SECRETS_FILE="$SCRIPT_DIR/secrets.json"
-REPO_URL="https://github.com/EmashCo/emash-hardware-detection.git"
+SECRETS_FILE_USB="$SCRIPT_DIR/secrets.json"
 WORK_DIR="/tmp/hardware_detection"
+SECRETS_FILE_WORK="$WORK_DIR/secrets.json"
+REPO_URL="https://github.com/Alizmn/emash-hardware-detection"
+ZIP_FILE="/tmp/hw_detect.zip"
 
 echo "===================================="
 echo "  Hardware Detection Bootstrap"
 echo "===================================="
 echo ""
 
-# Check if secrets file exists
-if [ ! -f "$SECRETS_FILE" ]; then
-    echo "ERROR: secrets.json not found on USB!"
-    echo "Please create secrets.json from secrets.json.example"
+# Check secrets on USB
+if [ ! -f "$SECRETS_FILE_USB" ]; then
+    echo "❌ ERROR: secrets.json not found on USB!"
+    echo "   Expected: $SCRIPT_DIR/secrets.json"
+    echo ""
+    echo "   Create secrets.json from secrets.json.example"
     exit 1
 fi
 
-echo "✓ Found secrets.json"
+echo "✓ Found secrets.json on USB"
 echo ""
 
-# Update system packages
-echo "Updating system packages..."
+# Install system dependencies
+echo "Installing system dependencies..."
 sudo apt-get update -qq
-
-# Install required system packages
-echo "Installing dependencies..."
-sudo apt-get install -y python3-pip git >/dev/null 2>&1
-
+sudo apt-get install -y python3-pip wget unzip >/dev/null 2>&1
 echo "✓ System dependencies installed"
 echo ""
 
-# Clone or update repository
-if [ -d "$WORK_DIR" ]; then
-    echo "Updating existing repository..."
-    cd "$WORK_DIR"
-    git pull origin main
-else
-    echo "Cloning repository from GitHub..."
-    git clone "$REPO_URL" "$WORK_DIR"
-    cd "$WORK_DIR"
-fi
+# Download latest code from GitHub (using ZIP, no git needed)
+echo "Downloading latest code from GitHub..."
+rm -rf "$WORK_DIR" "$ZIP_FILE"  # Clean previous runs
+wget -q --show-progress "$REPO_URL/archive/refs/heads/main.zip" -O "$ZIP_FILE"
+echo "✓ Code downloaded"
+echo ""
 
-echo "✓ Latest code pulled from GitHub"
+# Extract files
+echo "Extracting files..."
+unzip -q "$ZIP_FILE" -d /tmp/
+mv /tmp/emash-hardware-detection-main "$WORK_DIR"
+rm "$ZIP_FILE"
+echo "✓ Files extracted to $WORK_DIR"
+echo ""
+
+# Copy secrets from USB (read-only) to work directory (writable)
+echo "Copying secrets to work directory..."
+cp "$SECRETS_FILE_USB" "$SECRETS_FILE_WORK"
+echo "✓ Secrets copied"
 echo ""
 
 # Install Python dependencies
+cd "$WORK_DIR"
 echo "Installing Python packages..."
-pip3 install -q -r requirements.txt
-
-echo "✓ Python dependencies installed"
+pip3 install --break-system-packages -q -r requirements.txt
+echo "✓ Python packages installed"
 echo ""
 
-# Copy secrets to work directory
-cp "$SECRETS_FILE" "$WORK_DIR/secrets.json"
-
-# Run hardware detection
+# Run hardware detection with sudo
 echo "===================================="
 echo "  Starting Hardware Detection"
 echo "===================================="
 echo ""
 
-python3 hardware_detector.py --upload --secrets secrets.json
+sudo -E python3 hardware_detector.py --upload --secrets secrets.json
 
-# Cleanup secrets from temp directory
-rm -f "$WORK_DIR/secrets.json"
+# Cleanup
+echo ""
+echo "Cleaning up..."
+rm -f "$SECRETS_FILE_WORK"
+echo "✓ Secrets removed from temp directory"
+echo "✓ USB can now be safely removed"
 
 echo ""
 echo "===================================="
