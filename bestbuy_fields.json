@@ -1,0 +1,165 @@
+{
+  "required_fields": [
+    {
+      "code": "BBYCat",
+      "label": "Category Code",
+      "description": "Category code of the product",
+      "value_type": "text",
+      "example": "Computers/Laptops"
+    },
+    {
+      "code": "shop_sku",
+      "label": "Shop SKU",
+      "description": "Unique product identifier, 30 characters limit",
+      "value_type": "text",
+      "max_length": 30
+    },
+    {
+      "code": "_Title_BB_Category_Root_EN",
+      "label": "Title BB (EN)",
+      "description": "The main title describing the product",
+      "value_type": "text",
+      "example": "This is a text"
+    },
+    {
+      "code": "_Short_Description_BB_Category_Root_EN",
+      "label": "Short Description BB (EN)",
+      "description": "A single paragraph that describes the product in 400 characters or fewer. Introduce the product and call out a couple of key features and their benefits.",
+      "value_type": "text",
+      "max_length": 400
+    },
+    {
+      "code": "_Brand_Name_Category_Root_EN",
+      "label": "Brand Name",
+      "description": "Up to 20 characters. Do not use the less-than or greater-than characters.",
+      "value_type": "text",
+      "max_length": 20,
+      "example": "This is a text"
+    },
+    {
+      "code": "_Primary_UPC_Category_Root_EN",
+      "label": "Primary UPC",
+      "description": "12 OR 13 Digits/Number. Acceptable UPC TYPE: UPC-A and EAN13. Not mandatory for non-inventory products.",
+      "value_type": "text",
+      "example": "This is a text"
+    },
+    {
+      "code": "_Model_Number_Category_Root_EN",
+      "label": "Model Number",
+      "description": "Model number or name of the product (Up to 20 char). Do not use the less-than or greater-than characters.",
+      "value_type": "text",
+      "max_length": 20,
+      "example": "This is a text"
+    },
+    {
+      "code": "_Manufacturers_Part_Number_Category_Root_EN",
+      "label": "Manufacturer's Part Number",
+      "description": "Alphanumeric - up to 30 chars. Do not use the less-than or greater-than characters. Required to order from vendor. Case/character sensitive for EDI transmission. Not Mandatory for non-inventory set-up",
+      "value_type": "text",
+      "max_length": 30,
+      "example": "This is a text"
+    },
+    {
+      "code": "_ProductCondition_20257570_CAT_1002_EN",
+      "label": "Product Condition",
+      "description": "Brand new = sealed and unused. Open box = packaging has been opened, product is unused. Refurbished products have been used but inspected and restored to 100% functionality. Refurbs are graded on cosmetic condition: Excellent = no visible blemishes, Good = minor blemishes, Fair = noticeable blemishes. Warranty of 1 year must be provided for Brand New, Open Box, and Refurb Excellent. Warranty of min. 90 days for Refurb Good and Fair.",
+      "value_type": "enum",
+      "possible_values": ["Brand New", "Open Box", "Refurbished Excellent", "Refurbished Good", "Refurbished Fair"],
+      "example": "Brand New"
+    },
+    {
+      "code": "_MP_Source_Image_URL_01_Category_Root_EN",
+      "label": "01 - Image Source (Main Image)",
+      "description": "Provide a source for the main image of the product. Enter a publicly available image URL or upload an image. Minimum size 500x500. Max size 10 MB.",
+      "value_type": "url"
+    }
+  ],
+  "recommended_fields": [
+    {
+      "code": "_MP_Source_Image_URL_02_Category_Root_EN",
+      "label": "02 - Image Source",
+      "description": "Provide a source for an additional image of the product. Enter a publicly available image URL or upload an image. Minimum size 500x500. Max size 10 MB.",
+      "value_type": "url"
+    },
+    {
+      "code": "_Long_Description_BB_Category_Root_EN",
+      "label": "Long Description BB (EN)",
+      "description": "More detailed item information that's relevant to consumers.",
+      "value_type": "text"
+    },
+    {
+      "code": "_ScreenSize_3914_CAT_1002_EN",
+      "label": "Screen Size",
+      "description": "Indicate the screen size measured diagonally in inches (e.g. 13.3 in)",
+      "value_type": "number",
+      "unit": "inches",
+      "example": "6 1/4"
+    },
+    {
+      "code": "_ConvertibleHybridDisplay_36185_CAT_1002_EN",
+      "label": "Convertible/Hybrid Display",
+      "description": "Choose Yes if laptop folds/swivels into a tablet or screen detaches, turning the machine into tablet mode, otherwise choose No.",
+      "value_type": "enum",
+      "possible_values": ["Yes", "No"],
+      "example": "Yes"
+    },
+    {
+      "code": "_ProcessorType_3885_CAT_1002_EN",
+      "label": "Processor Type (EN)",
+      "description": "Brand and model of the processor type only. Do not list generation. (e.g. Intel Core i5 350M)",
+      "value_type": "text",
+      "example": "This is a text"
+    },
+    {
+      "code": "_RAMSize_9685909_CAT_1002_EN",
+      "label": "RAM Size",
+      "description": "Indicate the RAM size in GB.",
+      "value_type": "number",
+      "unit": "GB",
+      "example": "99"
+    },
+    {
+      "code": "_SolidStateDriveCapacity_4085597_CAT_1002_EN",
+      "label": "Solid-State Drive Capacity",
+      "description": "Please indicate the total capacity of all solid-state drives included, in GB or TB (e.g. 100 GB, 256 GB, 1 TB, etc.) Please do not include hard disk drive capacity.",
+      "value_type": "number",
+      "unit": "GB",
+      "example": "99"
+    },
+    {
+      "code": "_GraphicsCard_15196_CAT_1002_EN",
+      "label": "Graphics Card (EN)",
+      "description": "Name and model of graphics chipset (e.g. ATI Mobility Radeon HD 4250)",
+      "value_type": "text",
+      "example": "This is a text"
+    },
+    {
+      "code": "_Colour_5105_CAT_1002_EN",
+      "label": "Colour (EN)",
+      "description": "Main colour of the product (e.g. Harbour Mist, Beige, Lavender etc). Please separate multiple colours using semicolons.",
+      "value_type": "text",
+      "example": "This is a text"
+    },
+    {
+      "code": "_Platform_27709_CAT_1002_EN",
+      "label": "Platform",
+      "description": "Please choose an option from the drop down list that best describes the product.",
+      "value_type": "enum",
+      "possible_values": ["Business", "Chromebook", "PC Laptop", "Gaming", "Apple MacBook", "Ultra Thin & Light Laptop", "2-in-1 Laptop"],
+      "example": "Business"
+    },
+    {
+      "code": "_Web_Hierarchy_Location_Category_Root_EN",
+      "label": "Web Hierarchy Location",
+      "description": "Please provide the ID for the requested web hierarchy location as per the provided mapping details. Use the following format: BB_123456.",
+      "value_type": "text",
+      "example": "This is a text"
+    },
+    {
+      "code": "Variant_Group_Code",
+      "label": "Variant Group Code",
+      "description": "The variant group code attribute is used to group products in the same variant groups together. Please visit https://sellerhub.bestbuy.ca/s/article/Product-Variants to learn more.",
+      "value_type": "text"
+    }
+  ]
+}

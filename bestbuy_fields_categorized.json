@@ -1,0 +1,326 @@
+{
+  "auto_detected_fields": {
+    "description": "Fields that can be automatically extracted by hardware_detector.py",
+    "fields": [
+      {
+        "code": "_Brand_Name_Category_Root_EN",
+        "label": "Brand Name",
+        "requirement": "REQUIRED",
+        "detection_method": "dmidecode -t system (Manufacturer)",
+        "value_type": "text",
+        "max_length": 20
+      },
+      {
+        "code": "_Model_Number_Category_Root_EN",
+        "label": "Model Number",
+        "requirement": "REQUIRED",
+        "detection_method": "dmidecode -t system (Product Name)",
+        "value_type": "text",
+        "max_length": 20
+      },
+      {
+        "code": "_ProcessorType_3885_CAT_1002_EN",
+        "label": "Processor Type (EN)",
+        "requirement": "RECOMMENDED",
+        "detection_method": "lscpu (Model name)",
+        "value_type": "text"
+      },
+      {
+        "code": "_ProcessorSpeed_3886_CAT_1002_EN",
+        "label": "Processor Speed",
+        "requirement": "OPTIONAL",
+        "detection_method": "lscpu (CPU MHz converted to GHz)",
+        "value_type": "number",
+        "unit": "GHz"
+      },
+      {
+        "code": "_ProcessorCores_23322_CAT_1002_EN",
+        "label": "Processor Cores",
+        "requirement": "OPTIONAL",
+        "detection_method": "lscpu (Core(s) per socket × Socket(s))",
+        "value_type": "number"
+      },
+      {
+        "code": "_ProcessorCache_3897_CAT_1002_EN",
+        "label": "Processor Cache (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "dmidecode -t processor (L2/L3 Cache)",
+        "value_type": "text"
+      },
+      {
+        "code": "_RAMSize_9685909_CAT_1002_EN",
+        "label": "RAM Size",
+        "requirement": "RECOMMENDED",
+        "detection_method": "/proc/meminfo (MemTotal converted to GB)",
+        "value_type": "number",
+        "unit": "GB"
+      },
+      {
+        "code": "_RAMType_24674_CAT_1002_EN",
+        "label": "RAM Type (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "dmidecode -t memory (Type and Speed)",
+        "value_type": "text"
+      },
+      {
+        "code": "_SolidStateDriveCapacity_4085597_CAT_1002_EN",
+        "label": "Solid-State Drive Capacity",
+        "requirement": "RECOMMENDED",
+        "detection_method": "lsblk (disk type ROTA=0 for SSD)",
+        "value_type": "number",
+        "unit": "GB"
+      },
+      {
+        "code": "_HardDiskDriveCapacity_4085566_CAT_1002_EN",
+        "label": "Hard Disk Drive Capacity",
+        "requirement": "OPTIONAL",
+        "detection_method": "lsblk (disk type ROTA=1 for HDD)",
+        "value_type": "number",
+        "unit": "GB"
+      },
+      {
+        "code": "_ScreenSize_3914_CAT_1002_EN",
+        "label": "Screen Size",
+        "requirement": "RECOMMENDED",
+        "detection_method": "xrandr or edid-decode (physical dimensions converted to diagonal inches)",
+        "value_type": "number",
+        "unit": "inches"
+      },
+      {
+        "code": "_NativeScreenResolution_15195_CAT_1002_EN",
+        "label": "Native Screen Resolution (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "xrandr (active resolution with *)",
+        "value_type": "text"
+      },
+      {
+        "code": "_ScreenResolution_25959883_CAT_1002_EN",
+        "label": "Screen Resolution",
+        "requirement": "OPTIONAL",
+        "detection_method": "xrandr (active resolution)",
+        "value_type": "enum",
+        "possible_values": ["2560 x 1440", "3200 x 2000", "3440 x 1440", "3840 x 2400", "3000 x 2000", "5120 x 2880", "3072 x 1920", "1920 x 1200", "3024 x 1964", "Other", "2880 x 1800", "5120 x 2160", "1366 x 768", "3840 x 2160", "3456 x 2234", "3200 x 1800", "2560 x 1600", "1920 x 1080"]
+      },
+      {
+        "code": "_GraphicsCard_15196_CAT_1002_EN",
+        "label": "Graphics Card (EN)",
+        "requirement": "RECOMMENDED",
+        "detection_method": "lspci (VGA/3D controller)",
+        "value_type": "text"
+      },
+      {
+        "code": "_GraphicsProcessingUnitType_22765592_CAT_1002_EN",
+        "label": "Graphics Processing Unit Type",
+        "requirement": "OPTIONAL",
+        "detection_method": "lspci (detect NVIDIA/AMD discrete vs Intel integrated)",
+        "value_type": "enum",
+        "possible_values": ["Integrated GPU", "Dedicated or Discrete GPU"]
+      },
+      {
+        "code": "_BatteryCapacity_15253_CAT_1002_EN",
+        "label": "Battery - Capacity",
+        "requirement": "OPTIONAL",
+        "detection_method": "upower or /sys/class/power_supply (mAh)",
+        "value_type": "number",
+        "unit": "mAh"
+      },
+      {
+        "code": "_IntegratedWiFi_15245_CAT_1002_EN",
+        "label": "Integrated Wi-Fi (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "lspci (wireless/wi-fi network controller)",
+        "value_type": "text"
+      },
+      {
+        "code": "_IntegratedBluetooth_15246_CAT_1002_EN",
+        "label": "Integrated Bluetooth (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "hciconfig (hci0 device)",
+        "value_type": "text"
+      },
+      {
+        "code": "_EthernetPort_6605_CAT_1002_EN",
+        "label": "Ethernet Port (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "lspci (ethernet controller)",
+        "value_type": "text"
+      },
+      {
+        "code": "_Webcam_15213_CAT_1002_EN",
+        "label": "Webcam (EN)",
+        "requirement": "OPTIONAL",
+        "detection_method": "ls /dev/video* (video devices)",
+        "value_type": "text"
+      }
+    ]
+  },
+  "user_input_fields": {
+    "description": "Fields that require manual user input (visual inspection or business decisions)",
+    "fields": [
+      {
+        "code": "BBYCat",
+        "label": "Category Code",
+        "requirement": "REQUIRED",
+        "reason": "Business decision - product category",
+        "value_type": "text",
+        "example": "Computers/Laptops",
+        "note": "Can be hardcoded to 'Computers/Laptops' for laptop workflow"
+      },
+      {
+        "code": "shop_sku",
+        "label": "Shop SKU",
+        "requirement": "REQUIRED",
+        "reason": "Business-generated unique identifier",
+        "value_type": "text",
+        "max_length": 30,
+        "note": "Could auto-generate based on model + serial number"
+      },
+      {
+        "code": "_Title_BB_Category_Root_EN",
+        "label": "Title BB (EN)",
+        "requirement": "REQUIRED",
+        "reason": "Marketing copy - requires human judgment",
+        "value_type": "text",
+        "note": "Could auto-generate from: Brand + Model + Key Specs"
+      },
+      {
+        "code": "_Short_Description_BB_Category_Root_EN",
+        "label": "Short Description BB (EN)",
+        "requirement": "REQUIRED",
+        "reason": "Marketing copy - requires human judgment",
+        "value_type": "text",
+        "max_length": 400
+      },
+      {
+        "code": "_Primary_UPC_Category_Root_EN",
+        "label": "Primary UPC",
+        "requirement": "REQUIRED",
+        "reason": "Barcode on product packaging - visual inspection",
+        "value_type": "text",
+        "note": "12-13 digit barcode, user must scan or type"
+      },
+      {
+        "code": "_Manufacturers_Part_Number_Category_Root_EN",
+        "label": "Manufacturer's Part Number",
+        "requirement": "REQUIRED",
+        "reason": "May differ from model number - check product label/sticker",
+        "value_type": "text",
+        "max_length": 30
+      },
+      {
+        "code": "_ProductCondition_20257570_CAT_1002_EN",
+        "label": "Product Condition",
+        "requirement": "REQUIRED",
+        "reason": "Visual inspection of product condition",
+        "value_type": "enum",
+        "possible_values": ["Brand New", "Open Box", "Refurbished Excellent", "Refurbished Good", "Refurbished Fair"],
+        "note": "Implemented in prompt_manual_fields()"
+      },
+      {
+        "code": "_MP_Source_Image_URL_01_Category_Root_EN",
+        "label": "01 - Image Source (Main Image)",
+        "requirement": "REQUIRED",
+        "reason": "Photo must be taken or sourced",
+        "value_type": "url",
+        "note": "Minimum 500x500, max 10MB"
+      },
+      {
+        "code": "_MP_Source_Image_URL_02_Category_Root_EN",
+        "label": "02 - Image Source",
+        "requirement": "RECOMMENDED",
+        "reason": "Additional product photo",
+        "value_type": "url"
+      },
+      {
+        "code": "_Long_Description_BB_Category_Root_EN",
+        "label": "Long Description BB (EN)",
+        "requirement": "RECOMMENDED",
+        "reason": "Marketing copy - detailed product description",
+        "value_type": "text",
+        "note": "Could auto-generate from detected specs"
+      },
+      {
+        "code": "_ConvertibleHybridDisplay_36185_CAT_1002_EN",
+        "label": "Convertible/Hybrid Display",
+        "requirement": "RECOMMENDED",
+        "reason": "Visual inspection - check if laptop folds/converts to tablet",
+        "value_type": "enum",
+        "possible_values": ["Yes", "No"],
+        "note": "Implemented in prompt_manual_fields()"
+      },
+      {
+        "code": "_Colour_5105_CAT_1002_EN",
+        "label": "Colour (EN)",
+        "requirement": "RECOMMENDED",
+        "reason": "Visual inspection of laptop exterior color",
+        "value_type": "text",
+        "note": "Implemented in prompt_manual_fields()"
+      },
+      {
+        "code": "_Platform_27709_CAT_1002_EN",
+        "label": "Platform",
+        "requirement": "RECOMMENDED",
+        "reason": "Business categorization based on product type",
+        "value_type": "enum",
+        "possible_values": ["Business", "Chromebook", "PC Laptop", "Gaming", "Apple MacBook", "Ultra Thin & Light Laptop", "2-in-1 Laptop"],
+        "note": "Could auto-detect: MacBook from brand, Chromebook from OS, Gaming from GPU"
+      },
+      {
+        "code": "_Web_Hierarchy_Location_Category_Root_EN",
+        "label": "Web Hierarchy Location",
+        "requirement": "RECOMMENDED",
+        "reason": "Business decision - website navigation hierarchy",
+        "value_type": "text",
+        "example": "BB_123456"
+      },
+      {
+        "code": "Variant_Group_Code",
+        "label": "Variant Group Code",
+        "requirement": "RECOMMENDED",
+        "reason": "Business decision - group related product variants",
+        "value_type": "text"
+      },
+      {
+        "code": "_KeyboardLanguage_24678_CAT_1002_EN",
+        "label": "Keyboard Language",
+        "requirement": "OPTIONAL",
+        "reason": "Visual inspection of keyboard layout",
+        "value_type": "enum",
+        "possible_values": ["English", "French", "Bilingual"],
+        "note": "Implemented in prompt_manual_fields()"
+      },
+      {
+        "code": "_BacklitKeyboard_24680_CAT_1002_EN",
+        "label": "Backlit Keyboard",
+        "requirement": "OPTIONAL",
+        "reason": "Visual inspection - turn on backlight to check",
+        "value_type": "enum",
+        "possible_values": ["Yes", "No"],
+        "note": "Implemented in prompt_manual_fields()"
+      },
+      {
+        "code": "_TouchscreenDisplay_23335_CAT_1002_EN",
+        "label": "Touchscreen Display",
+        "requirement": "OPTIONAL",
+        "reason": "Physical test - touch screen to verify",
+        "value_type": "enum",
+        "possible_values": ["Yes", "No"],
+        "note": "Implemented in prompt_manual_fields()"
+      }
+    ]
+  },
+  "summary": {
+    "total_required_fields": 10,
+    "total_recommended_fields": 12,
+    "auto_detected_count": 20,
+    "user_input_count": 18,
+    "auto_detected_required": 2,
+    "user_input_required": 8,
+    "notes": [
+      "Some user input fields could be partially automated (e.g., title generation, platform detection)",
+      "Hardware detector already prompts for: keyboard language, backlit keyboard, touchscreen, convertible, color, product condition",
+      "Missing prompts for: UPC, manufacturer part number, images, descriptions, SKU, web hierarchy, variant group",
+      "Consider adding auto-generation for: shop_sku (from model+serial), title (from specs), platform (from brand/OS/GPU)"
+    ]
+  }
+}

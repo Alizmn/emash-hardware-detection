@@ -1,0 +1,8 @@
+# Supabase client for database operations
+supabase>=2.0.0
+
+# HTTP requests
+requests>=2.31.0
+
+# Progress bars
+tqdm>=4.66.0
