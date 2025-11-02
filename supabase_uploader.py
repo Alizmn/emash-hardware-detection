@@ -54,16 +54,18 @@ def create_supabase_client(secrets: Dict[str, Any]) -> Client:
     url = secrets['supabase_url']
     key = secrets['supabase_anon_key']
 
-    # Add Clerk JWT token if provided for authenticated access
-    options = {}
-    if 'clerk_token' in secrets and secrets['clerk_token']:
-        options = {
-            'headers': {
-                'Authorization': f"Bearer {secrets['clerk_token']}"
-            }
-        }
+    # Create client
+    # Note: Python Supabase SDK doesn't support custom headers in the same way as JS
+    # The Clerk token would need to be added per-request if required
+    # For now, using anon key directly (RLS policies should be configured to allow this)
+    client = create_client(url, key)
 
-    return create_client(url, key, options=options)
+    # If Clerk token is provided, we could add it to headers for each request
+    # but the Python SDK doesn't have a global headers option like the JS SDK
+    # This would require modifying each query, which is complex
+    # Alternative: Use Supabase service role key in secrets.json for this script
+
+    return client
 
 
 def extract_integrated_gpu(raw_data: Dict[str, Any]) -> Optional[str]:

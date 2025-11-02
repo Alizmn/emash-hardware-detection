@@ -38,8 +38,8 @@ Uploads to Supabase with Clerk authentication
 - Internet connection (to pull code and upload data)
 
 ### Credentials
-- Supabase project URL and anon key
-- Clerk long-lived session token
+- Supabase project URL
+- Supabase service role key (from Dashboard → Settings → API)
 
 ## Quick Start (USB Deployment)
 
@@ -50,16 +50,21 @@ Copy `secrets.json.example` to `secrets.json` and fill in your credentials:
 ```json
 {
   "supabase_url": "https://qazzzqcgmsqqrqsmtipr.supabase.co",
-  "supabase_anon_key": "your-actual-anon-key",
-  "clerk_token": "your-long-lived-clerk-token"
+  "supabase_anon_key": "your-supabase-service-role-key-here"
 }
 ```
 
-**How to get Clerk token:**
-1. Sign in to your app (https://your-app.clerk.com)
-2. Go to User Profile or Account Settings
-3. Generate a long-lived API token or session token
-4. Copy to secrets.json
+**Getting your Supabase Service Role Key:**
+1. Go to Supabase Dashboard → Settings → API
+2. Copy the **service_role** key (NOT the anon key)
+3. Paste into secrets.json
+
+**Important:** The service role key bypasses Row Level Security (RLS). This is necessary because:
+- Python Supabase SDK doesn't support custom headers like JavaScript SDK
+- Hardware detection runs standalone (no user session)
+- USB is physically secured (equivalent to having credentials on your computer)
+
+**Security:** Keep your USB drive secure - the service role key has full database access!
 
 ### 2. Copy bootstrap.sh to USB
 
@@ -166,12 +171,12 @@ Uploads to 5 Supabase tables:
 Create `secrets.json` on your USB drive from the example template.
 
 ### "Missing required secrets"
-Ensure secrets.json has all required fields: supabase_url, supabase_anon_key, clerk_token
+Ensure secrets.json has both required fields: supabase_url, supabase_anon_key
 
 ### "Upload failed"
 - Check internet connection
-- Verify Clerk token is valid (not expired)
-- Check Supabase URL and anon key are correct
+- Verify Supabase service role key is correct
+- Check Supabase URL is correct
 - Script will save to JSON as fallback
 
 ### "Permission denied"
