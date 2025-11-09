@@ -88,6 +88,11 @@ class HardwareDetector:
         if sku_match:
             self.raw_data['sku'] = sku_match.group(1).strip()
 
+        # Extract Family
+        family_match = re.search(r'Family:\s*(.+)', dmidecode_system)
+        if family_match:
+            self.raw_data['family'] = family_match.group(1).strip()
+
     def detect_processor(self):
         """Detect processor information"""
         print("🔍 Detecting processor...")
@@ -292,7 +297,7 @@ class HardwareDetector:
             has_touchscreen = False
             for line in xinput_output.split('\n'):
                 line_lower = line.lower()
-                if 'touchscreen' in line_lower and 'touchpad' not in line_lower:
+                if 'touch' in line_lower and 'touchpad' not in line_lower:
                     has_touchscreen = True
                     print("  ✅ Touchscreen detected via xinput")
                     break
@@ -329,22 +334,47 @@ class HardwareDetector:
             elif has_intel:
                 self.raw_data['gpu_type'] = "Integrated GPU"
 
-            # Extract GPU model
-            if gpu_lines:
-                # Get the most descriptive GPU line
-                main_gpu = gpu_lines[0]
-                # Extract GPU name after "VGA compatible controller:" or "3D controller:"
-                gpu_match = re.search(r'(?:VGA compatible controller|3D controller):\s*(.+?)(?:\s*\(rev.*\))?$', main_gpu)
-                if gpu_match:
-                    gpu_name = gpu_match.group(1).strip()
-                    # Extract just the marketing name from brackets if present (e.g., [UHD Graphics])
-                    bracket_match = re.search(r'\[(.+?)\]', gpu_name)
-                    if bracket_match:
-                        # Use name in brackets + manufacturer
-                        manufacturer = gpu_name.split('[')[0].strip().split()[-1]  # Last word before bracket
-                        self.raw_data['gpu_model'] = f"{manufacturer} {bracket_match.group(1)}"
+            # Extract GPU models separately for integrated and dedicated
+            for gpu_line in gpu_lines:
+                gpu_line_lower = gpu_line.lower()
+
+                # Extract text after controller type, removing revision
+                gpu_match = re.search(r'(?:VGA compatible controller|3D controller):\s*(.+?)(?:\s*\(rev.*\))?$', gpu_line)
+                if not gpu_match:
+                    continue
+
+                gpu_text = gpu_match.group(1).strip()
+
+                # Try to extract from brackets first (cleaner name)
+                bracket_match = re.search(r'\[(.+?)\]', gpu_text)
+
+                # Detect integrated GPU (Intel or AMD APU with Vega)
+                if 'intel' in gpu_line_lower:
+                    if bracket_match and bracket_match.group(1).strip():
+                        self.raw_data['integrated_gpu_model'] = f"Intel {bracket_match.group(1)}"
                     else:
-                        self.raw_data['gpu_model'] = gpu_name
+                        self.raw_data['integrated_gpu_model'] = gpu_text
+
+                # Detect AMD integrated GPU (Vega APU)
+                elif 'amd' in gpu_line_lower and 'vega' in gpu_line_lower:
+                    if bracket_match and bracket_match.group(1).strip():
+                        self.raw_data['integrated_gpu_model'] = f"AMD {bracket_match.group(1)}"
+                    else:
+                        self.raw_data['integrated_gpu_model'] = gpu_text
+
+                # Detect NVIDIA dedicated GPU
+                elif 'nvidia' in gpu_line_lower:
+                    if bracket_match and bracket_match.group(1).strip():
+                        self.raw_data['dedicated_gpu_model'] = f"NVIDIA {bracket_match.group(1)}"
+                    else:
+                        self.raw_data['dedicated_gpu_model'] = gpu_text
+
+                # Detect AMD dedicated GPU (discrete Radeon with RX)
+                elif 'amd' in gpu_line_lower and 'radeon' in gpu_line_lower and 'rx' in gpu_line_lower:
+                    if bracket_match and bracket_match.group(1).strip():
+                        self.raw_data['dedicated_gpu_model'] = f"AMD {bracket_match.group(1)}"
+                    else:
+                        self.raw_data['dedicated_gpu_model'] = gpu_text
 
     def detect_storage(self):
         """Detect storage information"""

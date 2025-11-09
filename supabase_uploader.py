@@ -70,7 +70,11 @@ def create_supabase_client(secrets: Dict[str, Any]) -> Client:
 
 def extract_integrated_gpu(raw_data: Dict[str, Any]) -> Optional[str]:
     """Extract integrated GPU model from raw detection data"""
-    # First, try to use the gpu_model that hardware_detector already parsed correctly
+    # First, try to use the new integrated_gpu_model field from hardware_detector
+    if "integrated_gpu_model" in raw_data:
+        return raw_data["integrated_gpu_model"]
+
+    # Backward compatibility: try old gpu_model field
     if "gpu_model" in raw_data and raw_data.get("gpu_type") == "Integrated GPU":
         return raw_data["gpu_model"]
 
@@ -110,7 +114,11 @@ def extract_integrated_gpu(raw_data: Dict[str, Any]) -> Optional[str]:
 
 def extract_dedicated_gpu(raw_data: Dict[str, Any]) -> Optional[str]:
     """Extract dedicated GPU model from raw detection data"""
-    # First, try to use the gpu_model that hardware_detector already parsed correctly
+    # First, try to use the new dedicated_gpu_model field from hardware_detector
+    if "dedicated_gpu_model" in raw_data:
+        return raw_data["dedicated_gpu_model"]
+
+    # Backward compatibility: try old gpu_model field
     if (
         "gpu_model" in raw_data
         and raw_data.get("gpu_type") == "Dedicated or Discrete GPU"
@@ -184,6 +192,7 @@ def upload_to_database(
         "has_touchscreen": has_touchscreen,
         "integrated_gpu_model": integrated_gpu,
         "dedicated_gpu_model": dedicated_gpu,
+        "family": raw_data.get("family"),
     }
 
     # Check if model exists (exact match on unique constraint fields)
