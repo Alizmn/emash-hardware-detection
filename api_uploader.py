@@ -61,10 +61,14 @@ _STORAGE_INTERFACE = {
 
 # lsblk device-name prefixes -> interface. Preferred over the lspci controller (see
 # _storage_interface): a controller enumerates even with the bay EMPTY.
+# ORDER MATTERS: eMMC is soldered and is therefore always the ONLY internal disk, so an
+# mmcblk device seen ALONGSIDE an nvme/sd disk is a card left in the SD reader, not eMMC
+# (a 64GB SD card reads 59.5G, past the <32GB filter, and often reports removable=0).
+# Checking it last means it only wins when nothing else was found.
 _DEVICE_PREFIX_INTERFACE = (
     ("nvme", "NVMe"),
-    ("mmcblk", "eMMC"),
     ("sd", "2.5"),
+    ("mmcblk", "eMMC"),
 )
 
 # Where the intake key may live, in priority order. "supabase_anon_key" is the
@@ -134,19 +138,27 @@ def _storage_interface(raw_data: Dict[str, Any]) -> Optional[str]:
     Returns None when nothing internal was found, which build_payload prunes, leaving the
     column NULL for the operator to set in the UI.
     """
+    controller = _STORAGE_INTERFACE.get(_clean(raw_data.get("storage_controller_type")) or "")
+
     devices = raw_data.get("storage_devices")
     if devices is None:
-        # The key is absent, so lsblk never ran (detect_storage sets it unconditionally,
-        # even to []). Only here is the controller the best evidence available.
-        return _STORAGE_INTERFACE.get(_clean(raw_data.get("storage_controller_type")) or "")
+        return controller
 
-    # The key IS present: we enumerated block devices. An empty list means we looked and
-    # found no internal drive, which must NOT fall back to the controller — that is exactly
-    # the empty-bay case where the controller would assert a drive that isn't there.
     names = [str(d.get("device") or "") for d in devices]
     for prefix, interface in _DEVICE_PREFIX_INTERFACE:
         if any(n.startswith(prefix) for n in names):
             return interface
+
+    # Nothing matched. That is the empty-bay case ONLY if nothing else says a drive is
+    # present — an empty list is not proof: detect_storage drops disks <32GB as "likely
+    # USB" (a 32GB eMMC reads 29.1G) and run_command returns "" when lsblk fails, so both
+    # collapse to []. Corroborate before deciding.
+    if (
+        raw_data.get("has_emmc_storage")
+        or raw_data.get("ssd_capacity_gb")
+        or raw_data.get("hdd_capacity_gb")
+    ):
+        return controller
     return None
 
 

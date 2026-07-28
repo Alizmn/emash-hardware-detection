@@ -838,8 +838,17 @@ class HardwareDetector:
         print(f"Processor:   {self.raw_data.get('cpu_model', 'N/A')}")
         print(f"Cores:       {self.raw_data.get('cpu_cores', 'N/A')}")
         print(f"RAM:         {self.raw_data.get('ram_size_gb', 'N/A')} GB {self.raw_data.get('ram_type', '')}")
+        # Show the RESOLVED interface (what the upload will persist), not the raw lspci
+        # controller — the resolver may override it, and showing the input would let a
+        # technician sign off on a value that never gets stored. Guarded import: a
+        # JSON-only run need not have `requests` installed.
+        try:
+            from api_uploader import _storage_interface
+            interface = _storage_interface(self.raw_data)
+        except ImportError:
+            interface = self.raw_data.get('storage_controller_type')
         print(f"Storage:     SSD: {self.raw_data.get('ssd_capacity_gb', 'N/A')} GB, HDD: {self.raw_data.get('hdd_capacity_gb', 'N/A')} GB"
-              f" ({self.raw_data.get('storage_controller_type') or 'interface unknown'})")
+              f" ({interface or 'interface unknown'})")
         print(f"Screen:      {self.raw_data.get('screen_size_inches', 'N/A')}\" @ {self.raw_data.get('screen_resolution', 'N/A')}")
         print(f"Graphics:    {self.raw_data.get('gpu_model', 'N/A')} ({self.raw_data.get('gpu_type', 'N/A')})")
         print(f"Battery:     {self.raw_data.get('battery_capacity_mah', 'N/A')} mAh")
