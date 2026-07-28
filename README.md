@@ -49,19 +49,23 @@ Copy `secrets.json.example` to `secrets.json` and fill in your credentials:
 
 ```json
 {
-  "api_url": "https://bbapi.anew-tech.com",
   "api_key": "your-intake-api-key-here"
 }
 ```
+
+The backend URL is compiled into the tool (`DEFAULT_API_URL`), so it is not part
+of `secrets.json`. Add an `api_url` entry only to point at staging or a local
+server.
 
 **Getting your intake API key:** ask your administrator. It is a shared secret
 scoped to a single capability — creating a laptop model from a hardware dump. It
 cannot read, edit or delete anything.
 
-> **Migrating an old USB stick?** Sticks created before the PostgreSQL migration
-> have `supabase_url` / `supabase_anon_key` in `secrets.json`. Those no longer
-> work. Replace the file with the two fields above — nothing else on the stick
-> changes.
+> **Existing USB sticks need no changes.** Sticks created before the PostgreSQL
+> migration have `supabase_url` / `supabase_anon_key` in `secrets.json`. The same
+> secret was re-issued as the intake key, so the tool reads the key from either
+> entry and the URL is built in. Those sticks keep working untouched; the tool
+> prints a one-line notice suggesting an update when convenient.
 
 **Security:** Keep your USB drive secure - the api_key can create catalog entries!
 
@@ -173,11 +177,7 @@ model configuration, so re-scanning the same laptop never creates a duplicate:
 Create `secrets.json` on your USB drive from the example template.
 
 ### "Missing required secrets"
-Ensure secrets.json has both required fields: `api_url`, `api_key`
-
-### "This USB stick still has the OLD Supabase credentials"
-Replace `secrets.json` with the `api_url` / `api_key` version — see
-`secrets.json.example`.
+Ensure secrets.json has an `api_key` entry (or the older `supabase_anon_key`)
 
 ### "Rejected (401)"
 The `api_key` is wrong or was rotated. Get a fresh one from your administrator.

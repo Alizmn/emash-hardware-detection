@@ -62,9 +62,9 @@ The script will prompt you for:
 pip3 install requests --break-system-packages
 ```
 
-**Error: "This USB stick still has the OLD Supabase credentials"**
-- The platform moved off Supabase. Replace `secrets.json` with the
-  `api_url` / `api_key` version (see `secrets.json.example`).
+**Note: "Using the legacy 'supabase_anon_key' entry as the API key"**
+- Not an error. Old sticks keep working; ask your admin for an updated
+  `secrets.json` when convenient.
 
 **Error: "Rejected (401)"**
 - The `api_key` is wrong or was rotated — get a fresh one from your admin.

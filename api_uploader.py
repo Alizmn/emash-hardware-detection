@@ -13,10 +13,12 @@ a database — the backend owns all schema knowledge, deduplication and validati
 
 secrets.json (on the USB stick):
 
-    {
-      "api_url": "https://bbapi.anew-tech.com",
-      "api_key": "<intake key>"
-    }
+    {"api_key": "<intake key>"}
+
+The backend URL is hardcoded (DEFAULT_API_URL) so sticks carry only the secret;
+an "api_url" entry still overrides it for staging/testing. For backward
+compatibility the key is also read from the legacy "supabase_anon_key" entry, so
+sticks issued before the PostgreSQL migration keep working untouched.
 """
 
 from pathlib import Path
@@ -28,6 +30,10 @@ import requests
 
 # Generous: the intake call runs one transaction plus dedup, and technicians are
 # often on slow shop wifi. Still bounded so a hung network can't hang the tool.
+# Hardcoded so a stick only has to carry the secret. secrets.json "api_url" overrides
+# it (staging/local testing).
+DEFAULT_API_URL = "https://bbapi.anew-tech.com"
+
 REQUEST_TIMEOUT_SECONDS = 60
 INTAKE_PATH = "/api/v2/intake/model"
 
@@ -42,9 +48,10 @@ RETRY_BACKOFF_SECONDS = 3
 # let one unreadable value 422 the entire scan.
 _POSITIVE_ONLY = ("cpu_cores", "cpu_max_ghz", "cpu_speed_ghz", "screen_size_inches")
 
-# Keys the old Supabase-era secrets.json used. Detected only to give the
-# technician an actionable message instead of a generic "missing field".
-_LEGACY_KEYS = ("supabase_url", "supabase_anon_key")
+# Where the intake key may live, in priority order. "supabase_anon_key" is the
+# pre-migration entry: the same secret was re-issued as the intake key, so sticks
+# that were never re-imaged keep working with no edit at all.
+_KEY_FIELDS = ("api_key", "supabase_anon_key")
 
 
 class UploadError(RuntimeError):
@@ -52,11 +59,15 @@ class UploadError(RuntimeError):
 
 
 def load_secrets(secrets_path: str = "secrets.json") -> Dict[str, Any]:
-    """Load and validate secrets from JSON.
+    """Load secrets and normalize them to ``api_url`` + ``api_key``.
+
+    The key is taken from ``api_key``, falling back to the pre-migration
+    ``supabase_anon_key`` (the same secret was re-issued as the intake key, so an
+    un-reimaged stick still works). The URL defaults to :data:`DEFAULT_API_URL`.
 
     Raises:
         FileNotFoundError: secrets file missing
-        ValueError: required fields missing (including the old Supabase shape)
+        ValueError: no usable key in the file
     """
     secrets_file = Path(secrets_path)
     if not secrets_file.exists():
@@ -65,17 +76,22 @@ def load_secrets(secrets_path: str = "secrets.json") -> Dict[str, Any]:
     with open(secrets_file, "r") as f:
         secrets = json.load(f)
 
-    required = ["api_url", "api_key"]
-    missing = [k for k in required if not secrets.get(k)]
-    if missing:
-        if any(k in secrets for k in _LEGACY_KEYS):
-            raise ValueError(
-                "This USB stick still has the OLD Supabase credentials "
-                f"({', '.join(_LEGACY_KEYS)}). The platform no longer uses Supabase — "
-                "replace secrets.json with the new one containing 'api_url' and 'api_key'. "
-                "See secrets.json.example."
-            )
-        raise ValueError(f"Missing required secrets: {', '.join(missing)}")
+    source = next((f for f in _KEY_FIELDS if str(secrets.get(f) or "").strip()), None)
+    if source is None:
+        raise ValueError(
+            f"No API key in {secrets_path}: expected an 'api_key' entry "
+            f"(or the legacy '{_KEY_FIELDS[1]}'). See secrets.json.example."
+        )
+
+    # Normalize so the rest of the module only reads these two.
+    secrets["api_key"] = str(secrets[source]).strip()
+    secrets["api_url"] = str(secrets.get("api_url") or DEFAULT_API_URL).rstrip("/")
+
+    if source != "api_key":
+        print(
+            f"ℹ️  Using the legacy '{source}' entry as the API key. This still works; "
+            "ask your admin for an updated secrets.json when convenient."
+        )
 
     return secrets
 
@@ -206,7 +222,7 @@ def upload_to_database(
     print("📤 Uploading to EmashCo API")
     print("=" * 60 + "\n")
 
-    base_url = str(secrets["api_url"]).rstrip("/")
+    base_url = str(secrets.get("api_url") or DEFAULT_API_URL).rstrip("/")
     url = f"{base_url}{INTAKE_PATH}"
     payload = build_payload(raw_data, bestbuy_data)
 

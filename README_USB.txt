@@ -39,31 +39,30 @@ FILES ON THIS USB:
 
 SECRETS SETUP:
 --------------
-Your secrets.json must contain:
+Your secrets.json needs one entry:
 
 {
-  "api_url": "https://bbapi.anew-tech.com",
   "api_key": "your-intake-api-key"
 }
 
+The server address is built into the tool, so it is not in secrets.json.
 Get the intake API key from your administrator.
 
-⚠️  UPGRADING AN OLD USB STICK:
-   Older sticks have a secrets.json with "supabase_url" and
-   "supabase_anon_key". Those NO LONGER WORK - the platform moved off
-   Supabase. Replace secrets.json with the two fields above. Nothing else
-   on the stick needs to change.
+EXISTING USB STICKS NEED NO CHANGES.
+   Sticks issued before the PostgreSQL migration have "supabase_url" and
+   "supabase_anon_key" in secrets.json. They keep working: the same secret
+   was re-issued as the intake key, so the tool reads it from either entry.
+   You will see a one-line notice suggesting an updated secrets.json --
+   that is informational, not an error.
 
 TROUBLESHOOTING:
 ----------------
 "secrets.json not found"
   → Create secrets.json on this USB
 
-"This USB stick still has the OLD Supabase credentials"
-  → Replace secrets.json with the new api_url/api_key version (see above)
-
-"Missing required secrets"
-  → Check secrets.json has both api_url and api_key
+"No API key in secrets.json"
+  → secrets.json needs an "api_key" entry (or the older
+    "supabase_anon_key" one). See SECRETS SETUP above.
 
 "Rejected (401)"
   → The api_key is wrong or was rotated - get a new one from your admin
@@ -72,7 +71,7 @@ TROUBLESHOOTING:
   → Intake is not configured on the server - contact your admin
 
 "Could not reach ..." / "Timed out"
-  → Check internet connection; verify api_url is correct
+  → Check the internet connection (the server address is built in)
   → Detection results are saved to JSON as a fallback — but in /tmp, which is
     WIPED by a reboot and by the next bootstrap.sh run. Copy the file onto
     the USB stick before rebooting or re-scanning.
