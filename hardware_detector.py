@@ -496,7 +496,14 @@ class HardwareDetector:
                 # Determine controller type
                 if 'nvme' in lspci_storage.lower() or 'non-volatile memory' in lspci_storage.lower():
                     self.raw_data['storage_controller_type'] = 'NVMe'
-                elif 'emmc' in lspci_storage.lower() or 'mmc' in lspci_storage.lower():
+                # A bare 'mmc' also matches SD/MMC CARD READERS ("Ricoh R5C822 SD/SDIO/MMC",
+                # "O2 Micro SD/MMC Card Reader") — common in exactly the SATA-era laptops we
+                # refurbish, and this branch runs BEFORE the SATA one. Require a real eMMC
+                # block device (/dev/mmcblk*) before calling it eMMC, otherwise a machine with
+                # a removable 2.5" drive gets classified as soldered storage.
+                elif self.raw_data.get('has_emmc_storage') and (
+                    'emmc' in lspci_storage.lower() or 'mmc' in lspci_storage.lower()
+                ):
                     self.raw_data['storage_controller_type'] = 'eMMC'
                 elif 'sata' in lspci_storage.lower():
                     self.raw_data['storage_controller_type'] = 'SATA'
@@ -831,7 +838,8 @@ class HardwareDetector:
         print(f"Processor:   {self.raw_data.get('cpu_model', 'N/A')}")
         print(f"Cores:       {self.raw_data.get('cpu_cores', 'N/A')}")
         print(f"RAM:         {self.raw_data.get('ram_size_gb', 'N/A')} GB {self.raw_data.get('ram_type', '')}")
-        print(f"Storage:     SSD: {self.raw_data.get('ssd_capacity_gb', 'N/A')} GB, HDD: {self.raw_data.get('hdd_capacity_gb', 'N/A')} GB")
+        print(f"Storage:     SSD: {self.raw_data.get('ssd_capacity_gb', 'N/A')} GB, HDD: {self.raw_data.get('hdd_capacity_gb', 'N/A')} GB"
+              f" ({self.raw_data.get('storage_controller_type') or 'interface unknown'})")
         print(f"Screen:      {self.raw_data.get('screen_size_inches', 'N/A')}\" @ {self.raw_data.get('screen_resolution', 'N/A')}")
         print(f"Graphics:    {self.raw_data.get('gpu_model', 'N/A')} ({self.raw_data.get('gpu_type', 'N/A')})")
         print(f"Battery:     {self.raw_data.get('battery_capacity_mah', 'N/A')} mAh")
