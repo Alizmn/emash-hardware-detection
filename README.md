@@ -1,6 +1,6 @@
 # emash-hardware-detection
 
-Automated hardware detection tool for laptops that extracts specifications and uploads to Supabase database. Designed to run from a Linux Live USB environment on bare laptops.
+Automated hardware detection tool for laptops that extracts specifications and uploads them to the EmashCo API. Designed to run from a Linux Live USB environment on bare laptops.
 
 ## Features
 
@@ -8,7 +8,7 @@ Automated hardware detection tool for laptops that extracts specifications and u
 - **Automated Detection** - Uses Linux commands to detect 90%+ of hardware specs
 - **BestBuy Field Mapping** - Maps detected specs to BestBuy marketplace format
 - **Secure Deployment** - Code from GitHub, secrets on USB only
-- **Clerk Authentication** - Uploads with authenticated Clerk token
+- **API Upload** - Posts to the EmashCo intake endpoint with a scoped API key
 - **Minimal Manual Input** - Only 6 visual confirmation questions
 
 ## How It Works
@@ -24,7 +24,7 @@ Runs detection (dmidecode, lscpu, lspci, etc.)
   ↓
 Maps to BestBuy fields
   ↓
-Uploads to Supabase with Clerk authentication
+Uploads to the EmashCo API (one atomic create)
 ```
 
 ## Prerequisites
@@ -38,8 +38,8 @@ Uploads to Supabase with Clerk authentication
 - Internet connection (to pull code and upload data)
 
 ### Credentials
-- Supabase project URL
-- Supabase service role key (from Dashboard → Settings → API)
+- EmashCo API URL (e.g. `https://bbapi.anew-tech.com`)
+- Intake API key (ask your administrator)
 
 ## Quick Start (USB Deployment)
 
@@ -49,22 +49,25 @@ Copy `secrets.json.example` to `secrets.json` and fill in your credentials:
 
 ```json
 {
-  "supabase_url": "https://qazzzqcgmsqqrqsmtipr.supabase.co",
-  "supabase_anon_key": "your-supabase-service-role-key-here"
+  "api_key": "your-intake-api-key-here"
 }
 ```
 
-**Getting your Supabase Service Role Key:**
-1. Go to Supabase Dashboard → Settings → API
-2. Copy the **service_role** key (NOT the anon key)
-3. Paste into secrets.json
+The backend URL is compiled into the tool (`DEFAULT_API_URL`), so it is not part
+of `secrets.json`. Add an `api_url` entry only to point at staging or a local
+server.
 
-**Important:** The service role key bypasses Row Level Security (RLS). This is necessary because:
-- Python Supabase SDK doesn't support custom headers like JavaScript SDK
-- Hardware detection runs standalone (no user session)
-- USB is physically secured (equivalent to having credentials on your computer)
+**Getting your intake API key:** ask your administrator. It is a shared secret
+scoped to a single capability — creating a laptop model from a hardware dump. It
+cannot read, edit or delete anything.
 
-**Security:** Keep your USB drive secure - the service role key has full database access!
+> **Existing USB sticks need no changes.** Sticks created before the PostgreSQL
+> migration have `supabase_url` / `supabase_anon_key` in `secrets.json`. The same
+> secret was re-issued as the intake key, so the tool reads the key from either
+> entry and the URL is built in. Those sticks keep working untouched; the tool
+> prints a one-line notice suggesting an update when convenient.
+
+**Security:** Keep your USB drive secure - the api_key can create catalog entries!
 
 ### 2. Copy bootstrap.sh to USB
 
@@ -90,7 +93,7 @@ The script will:
 - Pull latest detection code from GitHub
 - Install Python dependencies
 - Run hardware detection
-- Upload to Supabase with authentication
+- Upload to the EmashCo API
 - Clean up secrets from temp directory
 
 ## USB Structure
@@ -110,7 +113,7 @@ If you want to run the script directly without bootstrap:
 
 ```bash
 # Clone repository
-git clone https://github.com/EmashCo/emash-hardware-detection.git
+git clone https://github.com/Alizmn/emash-hardware-detection.git
 cd emash-hardware-detection
 
 # Install dependencies
@@ -147,9 +150,11 @@ sudo python3 hardware_detector.py --upload --secrets secrets.json
 - Color
 - Product Condition (New/Refurbished/Used)
 
-## Database Schema
+## What the upload creates
 
-Uploads to 5 Supabase tables:
+A single `POST /api/v2/intake/model` call. The API writes all five tables in one
+atomic transaction (nothing half-created if a step fails) and deduplicates on the
+model configuration, so re-scanning the same laptop never creates a duplicate:
 
 1. **laptop_models** - Base hardware configuration
 2. **laptop_hardware_data** - Detailed specs + raw detection JSON
@@ -161,7 +166,8 @@ Uploads to 5 Supabase tables:
 
 - ✅ No secrets in repository (public repo safe)
 - ✅ Secrets only on physical USB drive
-- ✅ Clerk JWT authentication for database access
+- ✅ No database credentials anywhere - the tool only holds a scoped API key
+- ✅ The key grants one capability (create a model); it cannot read, edit or delete
 - ✅ Code pulled fresh from GitHub on each use
 - ✅ Secrets cleaned from temp directory after use
 
@@ -171,13 +177,19 @@ Uploads to 5 Supabase tables:
 Create `secrets.json` on your USB drive from the example template.
 
 ### "Missing required secrets"
-Ensure secrets.json has both required fields: supabase_url, supabase_anon_key
+Ensure secrets.json has an `api_key` entry (or the older `supabase_anon_key`)
 
-### "Upload failed"
+### "Rejected (401)"
+The `api_key` is wrong or was rotated. Get a fresh one from your administrator.
+
+### "Rejected (503)"
+Intake is not configured on the server. Contact your administrator.
+
+### "Could not reach ..." / "Timed out"
 - Check internet connection
-- Verify Supabase service role key is correct
-- Check Supabase URL is correct
-- Script will save to JSON as fallback
+- Verify `api_url` in secrets.json is correct
+- Script will save to JSON as fallback, but it lands in /tmp (wiped by reboot and
+  by the next bootstrap.sh run) — copy it onto the USB stick before re-running
 
 ### "Permission denied"
 Run with sudo: `sudo bash bootstrap.sh`
@@ -189,7 +201,7 @@ Run with sudo: `sudo bash bootstrap.sh`
 ```
 emash-hardware-detection/
 ├── hardware_detector.py              # Main detection logic
-├── supabase_uploader.py              # Database upload functions
+├── api_uploader.py                   # EmashCo API upload client
 ├── bestbuy_fields.json               # BestBuy field definitions
 ├── bestbuy_fields_categorized.json   # Categorized field mapping
 ├── bootstrap.sh                      # USB bootstrap script

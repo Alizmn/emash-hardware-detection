@@ -25,14 +25,10 @@ else
     echo "   ✅ pip3 already installed (skipping)"
 fi
 
-# Step 3: Install supabase package
-echo "📦 Step 3/4: Installing supabase Python package..."
-if ! python3 -c "import supabase" 2>/dev/null; then
-    pip3 install supabase --break-system-packages -q
-    echo "   ✅ supabase package installed"
-else
-    echo "   ✅ supabase already installed (skipping)"
-fi
+# Step 3: Install Python dependencies
+echo "📦 Step 3/4: Installing Python dependencies..."
+pip3 install --break-system-packages -q -r requirements.txt
+echo "   ✅ Python dependencies installed"
 
 # Step 4: Run hardware detector
 echo "🚀 Step 4/4: Running hardware detector..."

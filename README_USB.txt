@@ -28,7 +28,7 @@ WHAT IT DOES:
 ✓ Installs Python dependencies
 ✓ Detects all laptop hardware
 ✓ Asks 6 manual questions (color, keyboard, condition, etc.)
-✓ Uploads to Supabase with Clerk authentication
+✓ Uploads to the EmashCo API (model + variant + inventory in one step)
 ✓ Cleans up secrets after upload
 
 FILES ON THIS USB:
@@ -39,38 +39,51 @@ FILES ON THIS USB:
 
 SECRETS SETUP:
 --------------
-Your secrets.json must contain:
+Your secrets.json needs one entry:
 
 {
-  "supabase_url": "https://your-project.supabase.co",
-  "supabase_anon_key": "your-anon-key",
-  "clerk_token": "your-clerk-session-token"
+  "api_key": "your-intake-api-key"
 }
 
-Get Clerk token from: https://your-app.clerk.com
-(User Profile → API Tokens → Generate Long-Lived Token)
+The server address is built into the tool, so it is not in secrets.json.
+Get the intake API key from your administrator.
+
+EXISTING USB STICKS NEED NO CHANGES.
+   Sticks issued before the PostgreSQL migration have "supabase_url" and
+   "supabase_anon_key" in secrets.json. They keep working: the same secret
+   was re-issued as the intake key, so the tool reads it from either entry.
+   You will see a one-line notice suggesting an updated secrets.json --
+   that is informational, not an error.
 
 TROUBLESHOOTING:
 ----------------
 "secrets.json not found"
   → Create secrets.json on this USB
 
-"Missing required secrets"
-  → Check secrets.json has all 3 fields
+"No API key in secrets.json"
+  → secrets.json needs an "api_key" entry (or the older
+    "supabase_anon_key" one). See SECRETS SETUP above.
 
-"Upload failed"
-  → Check internet connection
-  → Verify Clerk token is valid
-  → Script saves to JSON as fallback
+"Rejected (401)"
+  → The api_key is wrong or was rotated - get a new one from your admin
+
+"Rejected (503)"
+  → Intake is not configured on the server - contact your admin
+
+"Could not reach ..." / "Timed out"
+  → Check the internet connection (the server address is built in)
+  → Detection results are saved to JSON as a fallback — but in /tmp, which is
+    WIPED by a reboot and by the next bootstrap.sh run. Copy the file onto
+    the USB stick before rebooting or re-scanning.
 
 "Permission denied"
   → Run with: sudo bash bootstrap.sh
 
 SECURITY:
 ---------
-⚠️  Keep this USB secure - it contains database credentials!
+⚠️  Keep this USB secure - the api_key can create catalog entries!
 ⚠️  Never commit secrets.json to git
-⚠️  Regenerate Clerk token if USB is lost
+⚠️  Ask your admin to rotate the api_key if the USB is lost
 
 ═══════════════════════════════════════════════════════════
 

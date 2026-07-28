@@ -8,6 +8,7 @@ Detects hardware using Linux system commands and maps to BestBuy fields
 
 import subprocess
 import json
+import os
 import re
 import argparse
 from typing import Dict, Any, Optional
@@ -800,7 +801,14 @@ class HardwareDetector:
         with open(output_file, 'w') as f:
             json.dump(output, f, indent=2)
 
-        print(f"✅ Results saved to {output_file}\n")
+        saved_path = os.path.abspath(output_file)
+        print(f"✅ Results saved to {saved_path}\n")
+        # bootstrap.sh runs from /tmp/hardware_detection, which is tmpfs on a live boot AND
+        # is rm -rf'd at the start of the next run — so this fallback does not survive a
+        # reboot or a re-scan. Tell the technician to rescue it now.
+        if saved_path.startswith('/tmp/'):
+            print("⚠️  /tmp is erased on shutdown AND wiped by the next bootstrap.sh run.")
+            print(f"   Copy {saved_path} onto the USB stick before rebooting or re-running.\n")
 
         # Also save just the BestBuy fields for easy upload
         bestbuy_only_file = output_file.replace('.json', '_bestbuy_only.json')
@@ -840,7 +848,7 @@ def main():
     parser.add_argument(
         '--upload',
         action='store_true',
-        help='Upload detection results to Supabase database'
+        help='Upload detection results to the EmashCo API'
     )
     parser.add_argument(
         '--secrets',
@@ -881,10 +889,10 @@ def main():
     # Prompt for manual fields
     detector.prompt_manual_fields()
 
-    # Upload to Supabase if --upload flag provided
+    # Upload to the EmashCo API if --upload flag provided
     if args.upload:
         try:
-            from supabase_uploader import load_secrets, create_supabase_client, upload_to_database
+            from api_uploader import load_secrets, upload_to_database
 
             print(f"\n📁 Loading secrets from: {args.secrets}")
 
@@ -892,13 +900,10 @@ def main():
             secrets = load_secrets(args.secrets)
             print("✓ Secrets loaded successfully")
 
-            # Create authenticated Supabase client
-            supabase = create_supabase_client(secrets)
-            print("✓ Connected to Supabase")
-
-            # Upload to database
+            # Upload via the API (it creates model + hardware + variant +
+            # inventory + manual fields in one atomic transaction)
             result = upload_to_database(
-                supabase=supabase,
+                secrets=secrets,
                 raw_data=detector.raw_data,
                 bestbuy_data=detector.bestbuy_data
             )
@@ -918,19 +923,19 @@ def main():
             print("="*60 + "\n")
 
             if result['status'] == 'created':
-                print("✅ Next steps:")
-                print("   1. Update inventory count in 'laptops' table")
-                print("   2. Create additional variants if needed (different RAM/SSD configs)")
-                print("   3. Fill manual fields via web UI (laptop_manual_fields)")
-                print("   4. Upload product images (laptop_images)")
-                print("   5. Create BestBuy listings when ready (bestbuy_listings)\n")
+                print("✅ Next steps (in the web UI):")
+                print("   1. Set the inventory count for this model")
+                print("   2. Add other variants if needed (different RAM/SSD configs)")
+                print("   3. Review the manual fields")
+                print("   4. Upload product images")
+                print("   5. Create BestBuy/Shopify listings when ready\n")
             elif result['status'] == 'exists':
                 print("ℹ️  This exact model configuration already exists in the database.")
                 print("   No duplicate was created.\n")
 
         except ImportError:
-            print("\n❌ Error: supabase package not installed")
-            print("   Install with: pip install supabase\n")
+            print("\n❌ Error: requests package not installed")
+            print("   Install with: pip install requests\n")
             # Save to JSON as fallback
             detector.save_results()
         except FileNotFoundError as e:
@@ -953,7 +958,7 @@ def main():
         # Default mode: save to JSON files
         detector.save_results()
         print("✅ All done! JSON files saved.")
-        print("   Run with --upload flag to upload to Supabase database instead.\n")
+        print("   Run with --upload flag to upload to the EmashCo API instead.\n")
 
 
 if __name__ == "__main__":
