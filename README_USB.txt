@@ -28,7 +28,7 @@ WHAT IT DOES:
 ✓ Installs Python dependencies
 ✓ Detects all laptop hardware
 ✓ Asks 6 manual questions (color, keyboard, condition, etc.)
-✓ Uploads to Supabase with Clerk authentication
+✓ Uploads to the EmashCo API (model + variant + inventory in one step)
 ✓ Cleans up secrets after upload
 
 FILES ON THIS USB:
@@ -42,35 +42,49 @@ SECRETS SETUP:
 Your secrets.json must contain:
 
 {
-  "supabase_url": "https://your-project.supabase.co",
-  "supabase_anon_key": "your-anon-key",
-  "clerk_token": "your-clerk-session-token"
+  "api_url": "https://bbapi.anew-tech.com",
+  "api_key": "your-intake-api-key"
 }
 
-Get Clerk token from: https://your-app.clerk.com
-(User Profile → API Tokens → Generate Long-Lived Token)
+Get the intake API key from your administrator.
+
+⚠️  UPGRADING AN OLD USB STICK:
+   Older sticks have a secrets.json with "supabase_url" and
+   "supabase_anon_key". Those NO LONGER WORK - the platform moved off
+   Supabase. Replace secrets.json with the two fields above. Nothing else
+   on the stick needs to change.
 
 TROUBLESHOOTING:
 ----------------
 "secrets.json not found"
   → Create secrets.json on this USB
 
-"Missing required secrets"
-  → Check secrets.json has all 3 fields
+"This USB stick still has the OLD Supabase credentials"
+  → Replace secrets.json with the new api_url/api_key version (see above)
 
-"Upload failed"
-  → Check internet connection
-  → Verify Clerk token is valid
-  → Script saves to JSON as fallback
+"Missing required secrets"
+  → Check secrets.json has both api_url and api_key
+
+"Rejected (401)"
+  → The api_key is wrong or was rotated - get a new one from your admin
+
+"Rejected (503)"
+  → Intake is not configured on the server - contact your admin
+
+"Could not reach ..." / "Timed out"
+  → Check internet connection; verify api_url is correct
+  → Detection results are saved to JSON as a fallback — but in /tmp, which is
+    WIPED by a reboot and by the next bootstrap.sh run. Copy the file onto
+    the USB stick before rebooting or re-scanning.
 
 "Permission denied"
   → Run with: sudo bash bootstrap.sh
 
 SECURITY:
 ---------
-⚠️  Keep this USB secure - it contains database credentials!
+⚠️  Keep this USB secure - the api_key can create catalog entries!
 ⚠️  Never commit secrets.json to git
-⚠️  Regenerate Clerk token if USB is lost
+⚠️  Ask your admin to rotate the api_key if the USB is lost
 
 ═══════════════════════════════════════════════════════════
 

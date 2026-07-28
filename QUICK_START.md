@@ -18,9 +18,9 @@ bash setup_and_run.sh
 **That's it!** The script will:
 - ✅ Update apt packages
 - ✅ Install python3-pip
-- ✅ Install supabase package
+- ✅ Install Python dependencies
 - ✅ Run hardware detection
-- ✅ Upload to database
+- ✅ Upload to the EmashCo API
 
 ### Step 3: Answer Manual Questions
 
@@ -56,16 +56,23 @@ The script will prompt you for:
 
 ## Troubleshooting
 
-**Error: "supabase package not installed"**
+**Error: "requests package not installed"**
 ```bash
 # Install manually:
-pip3 install supabase --break-system-packages
+pip3 install requests --break-system-packages
 ```
+
+**Error: "This USB stick still has the OLD Supabase credentials"**
+- The platform moved off Supabase. Replace `secrets.json` with the
+  `api_url` / `api_key` version (see `secrets.json.example`).
+
+**Error: "Rejected (401)"**
+- The `api_key` is wrong or was rotated — get a fresh one from your admin.
 
 **Error: "Read-only file system"**
 - This is normal on Live USB
 - Script doesn't save JSON files in --upload mode
-- Data goes directly to Supabase database
+- Data goes directly to the EmashCo API
 
 **Duplicate detected message:**
 ```
@@ -79,17 +86,13 @@ pip3 install supabase --break-system-packages
 
 ## After Detection
 
-The data is now in your Supabase database! Next steps:
+The model is now in the catalog and visible in the web UI. The API created the
+model, its hardware data, the default variant, an inventory row (count = 0) and
+the manual fields in a single atomic step.
 
-1. ✅ Check `laptop_models` table - base hardware
-2. ✅ Check `laptop_hardware_data` table - all detected specs
-3. ✅ Check `laptop_variants` table - RAM/SSD configuration
-4. ✅ Check `laptops` table - inventory (count = 0, update manually)
-
-**Manual updates needed:**
-- Update `laptops.inventory_count` (how many units you have)
-- Update `laptop_models.soldered_ram_gb` (if applicable, e.g., 16)
-- Update `laptop_models.removable_ram_slots` (e.g., 1)
+**Next steps in the web UI:**
+- Set the inventory count (how many units you have)
+- Set soldered RAM / removable RAM slots (if applicable)
 - Create additional variants (different RAM/SSD configs)
 - Upload product images
 - Fill remaining BestBuy fields
@@ -99,7 +102,7 @@ The data is now in your Supabase database! Next steps:
 ## Files on USB
 
 - `hardware_detector.py` - Main detection script
-- `supabase_uploader.py` - Database upload logic
+- `api_uploader.py` - EmashCo API upload logic
 - `setup_and_run.sh` - This automated setup script
 - `requirements.txt` - Python dependencies
 - `QUICK_START.md` - This guide
