@@ -181,7 +181,10 @@ class HardwareDetector:
                 self.raw_data['ram_size_gb'] = closest_size
 
         # Extract RAM type and speed from dmidecode
-        ram_type_match = re.search(r'Type:\s*(DDR\d+)', dmidecode_memory)
+        # (?:LP)?DDR: soldered LPDDR parts count as RAM for inventory, and the Zoho item is
+        # chosen from the generation DIGIT (DDR4/LPDDR4 -> PC4, DDR5/LPDDR5 -> PC5), so the
+        # LP prefix must not cause the whole match to be missed.
+        ram_type_match = re.search(r'Type:\s*((?:LP)?DDR\d+)', dmidecode_memory)
         if ram_type_match:
             self.raw_data['ram_type'] = ram_type_match.group(1).strip()
 

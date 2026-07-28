@@ -28,12 +28,12 @@ import time
 
 import requests
 
-# Generous: the intake call runs one transaction plus dedup, and technicians are
-# often on slow shop wifi. Still bounded so a hung network can't hang the tool.
 # Hardcoded so a stick only has to carry the secret. secrets.json "api_url" overrides
 # it (staging/local testing).
 DEFAULT_API_URL = "https://bbapi.anew-tech.com"
 
+# Generous: the intake call runs one transaction plus dedup, and technicians are
+# often on slow shop wifi. Still bounded so a hung network can't hang the tool.
 REQUEST_TIMEOUT_SECONDS = 60
 INTAKE_PATH = "/api/v2/intake/model"
 
@@ -47,6 +47,16 @@ RETRY_BACKOFF_SECONDS = 3
 # failed (e.g. lscpu printing "CPU max MHz: 0.0000" in a VM), so send nothing rather than
 # let one unreadable value 422 the entire scan.
 _POSITIVE_ONLY = ("cpu_cores", "cpu_max_ghz", "cpu_speed_ghz", "screen_size_inches")
+
+# Detector storage_controller_type -> the canonical interface the API accepts, which matches
+# the operator's Zoho item names ("256-NVMe", "256-2.5"). Anything unmapped is sent as absent
+# so the operator can set it per model in the UI rather than us guessing.
+_STORAGE_INTERFACE = {
+    "NVMe": "NVMe",
+    "SATA": "2.5",
+    "SATA (AHCI)": "2.5",
+    "eMMC": "eMMC",
+}
 
 # Where the intake key may live, in priority order. "supabase_anon_key" is the
 # pre-migration entry: the same secret was re-issued as the intake key, so sticks
@@ -139,6 +149,9 @@ def build_payload(
         "cpu_l3_cache": _clean(raw_data.get("cpu_l3_cache")),
         "ram_type": _clean(raw_data.get("ram_type")),
         "ssd_capacity_gb": raw_data.get("ssd_capacity_gb"),
+        "storage_interface": _STORAGE_INTERFACE.get(
+            _clean(raw_data.get("storage_controller_type")) or ""
+        ),
         "screen_size_inches": raw_data.get("screen_size_inches"),
         "screen_resolution": _clean(raw_data.get("screen_resolution")),
         "integrated_gpu_model": _clean(raw_data.get("integrated_gpu_model")),
