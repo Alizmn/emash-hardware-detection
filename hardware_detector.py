@@ -15,6 +15,20 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 
+
+# Marketing capacities the catalog is built on. lsblk reports BINARY sizes (a 256 GB SSD
+# shows as "238.5G", 1 TB as "931.5G"), so the raw number is never a size anyone stocks or
+# sells — and the Zoho component items are keyed on the marketing size. Snap to this ladder
+# so ssd_capacity_gb is always 128 / 256 / 512 / 1024 / ..., matching what the RAM path
+# already does. The untouched lsblk string stays in raw_data['storage_devices'].
+STANDARD_STORAGE_GB = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+
+
+def snap_storage_gb(size_gb: float) -> int:
+    """Round a measured drive size to the nearest marketing capacity."""
+    return min(STANDARD_STORAGE_GB, key=lambda standard: abs(standard - size_gb))
+
+
 class HardwareDetector:
     """Detects laptop hardware specifications using Linux commands"""
 
@@ -446,7 +460,13 @@ class HardwareDetector:
                 size_gb = value * multipliers.get(unit, 1)
 
                 if device['type'] == 'SSD':
-                    total_ssd_gb += size_gb
+                    # Snap each drive before summing. Snapping the total instead would
+                    # mangle a two-drive machine: 238.5 + 476.9 = 715.4 lands on a single
+                    # ladder step, while 256 + 512 = 768 is the real combined capacity.
+                    snapped = snap_storage_gb(size_gb)
+                    if snapped != round(size_gb):
+                        print(f"  ℹ️  {device['device']}: {size_str} measured -> {snapped} GB (marketing size)")
+                    total_ssd_gb += snapped
                 else:
                     total_hdd_gb += size_gb
 
