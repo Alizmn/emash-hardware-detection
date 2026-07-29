@@ -24,9 +24,24 @@ from datetime import datetime
 STANDARD_STORAGE_GB = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
 
 
+# Widest gap the ladder has to bridge is 931.5 -> 1024 (~10%). Anything further out is not a
+# binary-vs-marketing discrepancy, it is a drive we do not stock, so keep the measurement
+# rather than silently rewriting a 16TB drive (14600 measured) down to 8192.
+SNAP_TOLERANCE = 0.25
+
+
 def snap_storage_gb(size_gb: float) -> int:
-    """Round a measured drive size to the nearest marketing capacity."""
-    return min(STANDARD_STORAGE_GB, key=lambda standard: abs(standard - size_gb))
+    """Round a measured drive size to the nearest marketing capacity.
+
+    Returns the measurement unchanged when no marketing capacity is close, so an
+    out-of-ladder drive surfaces as an odd number instead of a confident wrong one.
+    """
+    if size_gb <= 0:
+        return 0
+    nearest = min(STANDARD_STORAGE_GB, key=lambda standard: abs(standard - size_gb))
+    if abs(nearest - size_gb) > SNAP_TOLERANCE * size_gb:
+        return round(size_gb)
+    return nearest
 
 
 class HardwareDetector:
@@ -425,22 +440,34 @@ class HardwareDetector:
                 except:
                     is_removable = False
 
-                # Parse size to check if it's a USB stick (< 32 GB)
-                size_match = re.match(r'([\d.]+)([KMGT])', device_size)
-                if size_match:
-                    value = float(size_match.group(1))
-                    unit = size_match.group(2)
-                    multipliers = {'K': 0.001, 'M': 0.001, 'G': 1, 'T': 1000}
-                    size_gb = value * multipliers.get(unit, 1)
+                # Parse the size. [\d.,] because lsblk renders the radix per LC_NUMERIC and
+                # bootstrap.sh runs `sudo -E`, so a French/German live boot prints "238,5G".
+                size_match = re.match(r'([\d.,]+)([KMGT])', device_size)
+                if not size_match:
+                    # 0B card-reader slots land here. They can never contribute capacity, and
+                    # keeping them would feed storage_interface() a phantom device name that
+                    # outranks the real drive.
+                    print(f"  ⚠️  Skipping {device_name} ({device_size}) - unreadable size")
+                    continue
 
-                    # Skip if removable OR too small (likely USB)
-                    if is_removable or size_gb < 32:
-                        print(f"  ⚠️  Skipping {device_name} ({device_size}) - {'removable device' if is_removable else 'too small, likely USB'}")
-                        continue
+                value = float(size_match.group(1).replace(',', '.'))
+                unit = size_match.group(2)
+                multipliers = {'K': 0.001, 'M': 0.001, 'G': 1, 'T': 1000}
+                size_gb = value * multipliers.get(unit, 1)
+
+                # Skip if removable OR too small (likely USB). eMMC is exempt from the floor:
+                # it is soldered (never a USB stick) and a 32GB part measures 29.1G, so the
+                # floor would drop it before snap_storage_gb could round it back up — leaving
+                # an interface with no capacity, which the Zoho lookup cannot use.
+                too_small = size_gb < 32 and not device_name.startswith('mmcblk')
+                if is_removable or too_small:
+                    print(f"  ⚠️  Skipping {device_name} ({device_size}) - {'removable device' if is_removable else 'too small, likely USB'}")
+                    continue
 
                 storage_devices.append({
                     'device': device_name,
                     'size': device_size,
+                    'size_gb': size_gb,  # parsed once; the capacity loop must not re-parse
                     'type': 'HDD' if is_rotational else 'SSD'
                 })
 
@@ -452,26 +479,19 @@ class HardwareDetector:
 
         for device in storage_devices:
             size_str = device['size']
-            # Parse size (e.g., "256G", "1T", "512.1G")
-            size_match = re.match(r'([\d.]+)([KMGT])', size_str)
-            if size_match:
-                value = float(size_match.group(1))
-                unit = size_match.group(2)
-
-                # Convert to GB
-                multipliers = {'K': 0.001, 'M': 0.001, 'G': 1, 'T': 1000}
-                size_gb = value * multipliers.get(unit, 1)
-
+            size_gb = device.get('size_gb')
+            if size_gb is not None:
+                # Snap each drive before summing. Snapping the total instead would mangle a
+                # two-drive machine: 238.5 + 476.9 = 715.4 lands on a single ladder step,
+                # while 256 + 512 = 768 is the real combined capacity. HDDs get the same
+                # treatment so the two numbers the technician signs off on share one scale.
+                snapped = snap_storage_gb(size_gb)
+                if snapped != round(size_gb):
+                    print(f"  ℹ️  {device['device']}: {size_str} measured -> {snapped} GB (marketing size)")
                 if device['type'] == 'SSD':
-                    # Snap each drive before summing. Snapping the total instead would
-                    # mangle a two-drive machine: 238.5 + 476.9 = 715.4 lands on a single
-                    # ladder step, while 256 + 512 = 768 is the real combined capacity.
-                    snapped = snap_storage_gb(size_gb)
-                    if snapped != round(size_gb):
-                        print(f"  ℹ️  {device['device']}: {size_str} measured -> {snapped} GB (marketing size)")
                     total_ssd_gb += snapped
                 else:
-                    total_hdd_gb += size_gb
+                    total_hdd_gb += snapped
 
         # Only report storage if internal drives found
         if total_ssd_gb > 0:
@@ -863,10 +883,13 @@ class HardwareDetector:
         # technician sign off on a value that never gets stored. Guarded import: a
         # JSON-only run need not have `requests` installed.
         try:
-            from api_uploader import _storage_interface
-            interface = _storage_interface(self.raw_data)
+            from api_uploader import storage_interface
+            interface = storage_interface(self.raw_data)
         except ImportError:
-            interface = self.raw_data.get('storage_controller_type')
+            # No requests => no upload either, so print nothing we cannot vouch for. The raw
+            # lspci controller would show 'SATA'/'Unknown' where the resolver stores '2.5'/
+            # nothing, i.e. exactly the mismatch the line above exists to avoid.
+            interface = None
         print(f"Storage:     SSD: {self.raw_data.get('ssd_capacity_gb', 'N/A')} GB, HDD: {self.raw_data.get('hdd_capacity_gb', 'N/A')} GB"
               f" ({interface or 'interface unknown'})")
         print(f"Screen:      {self.raw_data.get('screen_size_inches', 'N/A')}\" @ {self.raw_data.get('screen_resolution', 'N/A')}")

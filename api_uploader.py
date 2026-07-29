@@ -49,9 +49,10 @@ RETRY_BACKOFF_SECONDS = 3
 _POSITIVE_ONLY = ("cpu_cores", "cpu_max_ghz", "cpu_speed_ghz", "screen_size_inches")
 
 # Detector storage_controller_type -> the canonical interface the API accepts (the values in
-# migration 0007's CHECK). NOT yet consumed by Zoho item selection: zoho_component_items is
-# still keyed (kind, size_gb) only, so this is the producer half. Anything unmapped is sent
-# absent so the operator sets it per model in the UI rather than us guessing.
+# migration 0007's CHECK). This picks WHICH same-size Zoho component item a variant consumes:
+# zoho_component_items is keyed (kind, size_gb, subtype), and the backend fails closed when
+# the interface is missing. Anything unmapped is sent absent so the operator sets it per model
+# in the UI rather than us guessing.
 _STORAGE_INTERFACE = {
     "NVMe": "NVMe",
     "SATA": "2.5",
@@ -60,7 +61,7 @@ _STORAGE_INTERFACE = {
 }
 
 # lsblk device-name prefixes -> interface. Preferred over the lspci controller (see
-# _storage_interface): a controller enumerates even with the bay EMPTY.
+# storage_interface): a controller enumerates even with the bay EMPTY.
 # ORDER MATTERS: eMMC is soldered and is therefore always the ONLY internal disk, so an
 # mmcblk device seen ALONGSIDE an nvme/sd disk is a card left in the SD reader, not eMMC
 # (a 64GB SD card reads 59.5G, past the <32GB filter, and often reports removable=0).
@@ -127,7 +128,7 @@ def _clean(value: Optional[str]) -> Optional[str]:
     return text or None
 
 
-def _storage_interface(raw_data: Dict[str, Any]) -> Optional[str]:
+def storage_interface(raw_data: Dict[str, Any]) -> Optional[str]:
     """Resolve the storage interface, preferring per-device evidence over the controller.
 
     ``storage_controller_type`` comes from lspci, so a chipset SATA/AHCI controller
@@ -197,7 +198,7 @@ def build_payload(
         "cpu_l3_cache": _clean(raw_data.get("cpu_l3_cache")),
         "ram_type": _clean(raw_data.get("ram_type")),
         "ssd_capacity_gb": raw_data.get("ssd_capacity_gb"),
-        "storage_interface": _storage_interface(raw_data),
+        "storage_interface": storage_interface(raw_data),
         "screen_size_inches": raw_data.get("screen_size_inches"),
         "screen_resolution": _clean(raw_data.get("screen_resolution")),
         "integrated_gpu_model": _clean(raw_data.get("integrated_gpu_model")),
