@@ -15,6 +15,20 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 
+
+# Marketing capacities the catalog is built on. lsblk reports BINARY sizes (a 256 GB SSD
+# shows as "238.5G", 1 TB as "931.5G"), so the raw number is never a size anyone stocks or
+# sells — and the Zoho component items are keyed on the marketing size. Snap to this ladder
+# so ssd_capacity_gb is always 128 / 256 / 512 / 1024 / ..., matching what the RAM path
+# already does. The untouched lsblk string stays in raw_data['storage_devices'].
+STANDARD_STORAGE_GB = [32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+
+
+def snap_storage_gb(size_gb: float) -> int:
+    """Round a measured drive size to the nearest marketing capacity."""
+    return min(STANDARD_STORAGE_GB, key=lambda standard: abs(standard - size_gb))
+
+
 class HardwareDetector:
     """Detects laptop hardware specifications using Linux commands"""
 
@@ -181,7 +195,10 @@ class HardwareDetector:
                 self.raw_data['ram_size_gb'] = closest_size
 
         # Extract RAM type and speed from dmidecode
-        ram_type_match = re.search(r'Type:\s*(DDR\d+)', dmidecode_memory)
+        # (?:LP)?DDR: soldered LPDDR parts count as RAM for inventory, and the Zoho item is
+        # chosen from the generation DIGIT (DDR4/LPDDR4 -> PC4, DDR5/LPDDR5 -> PC5), so the
+        # LP prefix must not cause the whole match to be missed.
+        ram_type_match = re.search(r'Type:\s*((?:LP)?DDR\d+)', dmidecode_memory)
         if ram_type_match:
             self.raw_data['ram_type'] = ram_type_match.group(1).strip()
 
@@ -446,7 +463,13 @@ class HardwareDetector:
                 size_gb = value * multipliers.get(unit, 1)
 
                 if device['type'] == 'SSD':
-                    total_ssd_gb += size_gb
+                    # Snap each drive before summing. Snapping the total instead would
+                    # mangle a two-drive machine: 238.5 + 476.9 = 715.4 lands on a single
+                    # ladder step, while 256 + 512 = 768 is the real combined capacity.
+                    snapped = snap_storage_gb(size_gb)
+                    if snapped != round(size_gb):
+                        print(f"  ℹ️  {device['device']}: {size_str} measured -> {snapped} GB (marketing size)")
+                    total_ssd_gb += snapped
                 else:
                     total_hdd_gb += size_gb
 
@@ -493,7 +516,14 @@ class HardwareDetector:
                 # Determine controller type
                 if 'nvme' in lspci_storage.lower() or 'non-volatile memory' in lspci_storage.lower():
                     self.raw_data['storage_controller_type'] = 'NVMe'
-                elif 'emmc' in lspci_storage.lower() or 'mmc' in lspci_storage.lower():
+                # A bare 'mmc' also matches SD/MMC CARD READERS ("Ricoh R5C822 SD/SDIO/MMC",
+                # "O2 Micro SD/MMC Card Reader") — common in exactly the SATA-era laptops we
+                # refurbish, and this branch runs BEFORE the SATA one. Require a real eMMC
+                # block device (/dev/mmcblk*) before calling it eMMC, otherwise a machine with
+                # a removable 2.5" drive gets classified as soldered storage.
+                elif self.raw_data.get('has_emmc_storage') and (
+                    'emmc' in lspci_storage.lower() or 'mmc' in lspci_storage.lower()
+                ):
                     self.raw_data['storage_controller_type'] = 'eMMC'
                 elif 'sata' in lspci_storage.lower():
                     self.raw_data['storage_controller_type'] = 'SATA'
@@ -828,7 +858,17 @@ class HardwareDetector:
         print(f"Processor:   {self.raw_data.get('cpu_model', 'N/A')}")
         print(f"Cores:       {self.raw_data.get('cpu_cores', 'N/A')}")
         print(f"RAM:         {self.raw_data.get('ram_size_gb', 'N/A')} GB {self.raw_data.get('ram_type', '')}")
-        print(f"Storage:     SSD: {self.raw_data.get('ssd_capacity_gb', 'N/A')} GB, HDD: {self.raw_data.get('hdd_capacity_gb', 'N/A')} GB")
+        # Show the RESOLVED interface (what the upload will persist), not the raw lspci
+        # controller — the resolver may override it, and showing the input would let a
+        # technician sign off on a value that never gets stored. Guarded import: a
+        # JSON-only run need not have `requests` installed.
+        try:
+            from api_uploader import _storage_interface
+            interface = _storage_interface(self.raw_data)
+        except ImportError:
+            interface = self.raw_data.get('storage_controller_type')
+        print(f"Storage:     SSD: {self.raw_data.get('ssd_capacity_gb', 'N/A')} GB, HDD: {self.raw_data.get('hdd_capacity_gb', 'N/A')} GB"
+              f" ({interface or 'interface unknown'})")
         print(f"Screen:      {self.raw_data.get('screen_size_inches', 'N/A')}\" @ {self.raw_data.get('screen_resolution', 'N/A')}")
         print(f"Graphics:    {self.raw_data.get('gpu_model', 'N/A')} ({self.raw_data.get('gpu_type', 'N/A')})")
         print(f"Battery:     {self.raw_data.get('battery_capacity_mah', 'N/A')} mAh")

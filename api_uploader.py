@@ -28,12 +28,12 @@ import time
 
 import requests
 
-# Generous: the intake call runs one transaction plus dedup, and technicians are
-# often on slow shop wifi. Still bounded so a hung network can't hang the tool.
 # Hardcoded so a stick only has to carry the secret. secrets.json "api_url" overrides
 # it (staging/local testing).
 DEFAULT_API_URL = "https://bbapi.anew-tech.com"
 
+# Generous: the intake call runs one transaction plus dedup, and technicians are
+# often on slow shop wifi. Still bounded so a hung network can't hang the tool.
 REQUEST_TIMEOUT_SECONDS = 60
 INTAKE_PATH = "/api/v2/intake/model"
 
@@ -47,6 +47,29 @@ RETRY_BACKOFF_SECONDS = 3
 # failed (e.g. lscpu printing "CPU max MHz: 0.0000" in a VM), so send nothing rather than
 # let one unreadable value 422 the entire scan.
 _POSITIVE_ONLY = ("cpu_cores", "cpu_max_ghz", "cpu_speed_ghz", "screen_size_inches")
+
+# Detector storage_controller_type -> the canonical interface the API accepts (the values in
+# migration 0007's CHECK). NOT yet consumed by Zoho item selection: zoho_component_items is
+# still keyed (kind, size_gb) only, so this is the producer half. Anything unmapped is sent
+# absent so the operator sets it per model in the UI rather than us guessing.
+_STORAGE_INTERFACE = {
+    "NVMe": "NVMe",
+    "SATA": "2.5",
+    "SATA (AHCI)": "2.5",
+    "eMMC": "eMMC",
+}
+
+# lsblk device-name prefixes -> interface. Preferred over the lspci controller (see
+# _storage_interface): a controller enumerates even with the bay EMPTY.
+# ORDER MATTERS: eMMC is soldered and is therefore always the ONLY internal disk, so an
+# mmcblk device seen ALONGSIDE an nvme/sd disk is a card left in the SD reader, not eMMC
+# (a 64GB SD card reads 59.5G, past the <32GB filter, and often reports removable=0).
+# Checking it last means it only wins when nothing else was found.
+_DEVICE_PREFIX_INTERFACE = (
+    ("nvme", "NVMe"),
+    ("sd", "2.5"),
+    ("mmcblk", "eMMC"),
+)
 
 # Where the intake key may live, in priority order. "supabase_anon_key" is the
 # pre-migration entry: the same secret was re-issued as the intake key, so sticks
@@ -104,6 +127,41 @@ def _clean(value: Optional[str]) -> Optional[str]:
     return text or None
 
 
+def _storage_interface(raw_data: Dict[str, Any]) -> Optional[str]:
+    """Resolve the storage interface, preferring per-device evidence over the controller.
+
+    ``storage_controller_type`` comes from lspci, so a chipset SATA/AHCI controller
+    enumerates whether or not a disk is attached — a machine scanned with the drive pulled
+    would otherwise upload a confident "2.5" with no capacity. ``storage_devices`` is built
+    from lsblk and already filtered for removable/USB, so the device names are real drives.
+
+    Returns None when nothing internal was found, which build_payload prunes, leaving the
+    column NULL for the operator to set in the UI.
+    """
+    controller = _STORAGE_INTERFACE.get(_clean(raw_data.get("storage_controller_type")) or "")
+
+    devices = raw_data.get("storage_devices")
+    if devices is None:
+        return controller
+
+    names = [str(d.get("device") or "") for d in devices]
+    for prefix, interface in _DEVICE_PREFIX_INTERFACE:
+        if any(n.startswith(prefix) for n in names):
+            return interface
+
+    # Nothing matched. That is the empty-bay case ONLY if nothing else says a drive is
+    # present — an empty list is not proof: detect_storage drops disks <32GB as "likely
+    # USB" (a 32GB eMMC reads 29.1G) and run_command returns "" when lsblk fails, so both
+    # collapse to []. Corroborate before deciding.
+    if (
+        raw_data.get("has_emmc_storage")
+        or raw_data.get("ssd_capacity_gb")
+        or raw_data.get("hdd_capacity_gb")
+    ):
+        return controller
+    return None
+
+
 def build_payload(
     raw_data: Dict[str, Any], bestbuy_data: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -139,6 +197,7 @@ def build_payload(
         "cpu_l3_cache": _clean(raw_data.get("cpu_l3_cache")),
         "ram_type": _clean(raw_data.get("ram_type")),
         "ssd_capacity_gb": raw_data.get("ssd_capacity_gb"),
+        "storage_interface": _storage_interface(raw_data),
         "screen_size_inches": raw_data.get("screen_size_inches"),
         "screen_resolution": _clean(raw_data.get("screen_resolution")),
         "integrated_gpu_model": _clean(raw_data.get("integrated_gpu_model")),
