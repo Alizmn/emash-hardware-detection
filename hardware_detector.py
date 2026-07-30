@@ -343,6 +343,33 @@ class HardwareDetector:
             print("  ⚠️  Could not detect touchscreen via xinput")
             self.raw_data['has_touchscreen'] = None  # Unknown, will prompt user
 
+    @staticmethod
+    def model_bracket(gpu_text):
+        """The LAST bracket group in an lspci device string — the model name.
+
+        AMD puts the vendor alias in brackets BEFORE the model, so those lines carry two groups:
+
+            Advanced Micro Devices, Inc. [AMD/ATI] Renoir [Radeon RX Vega 6 (Ryzen 4000/5000)]
+                                         ^^^^^^^^^         ^^^^^^ the name we want
+
+        A non-greedy search stops at the first, which is how machines came to be recorded with
+        the GPU name "AMD AMD/ATI". Intel and NVIDIA lines have one group, so last IS first and
+        nothing changes for them. Returns None when there is no usable bracket.
+        """
+        groups = re.findall(r'\[(.+?)\]', gpu_text)
+        return groups[-1].strip() if groups and groups[-1].strip() else None
+
+    @staticmethod
+    def is_amd_discrete(gpu_line_lower):
+        """Discrete Radeon, as opposed to the integrated Radeon in an APU.
+
+        "rx" alone is not enough: a Renoir/Cezanne APU reports "Radeon RX Vega 6", which would
+        read as a discrete card and make the machine advertise graphics it does not have.
+        Vega-BRANDED discrete parts (56/64) are desktop-only, so excluding "vega" separates the
+        two for every laptop. R-series APUs ("Radeon R5/R6/R7 Graphics") carry no "rx" at all.
+        """
+        return 'radeon' in gpu_line_lower and 'rx' in gpu_line_lower and 'vega' not in gpu_line_lower
+
     def detect_graphics(self):
         """Detect graphics card information"""
         print("🔍 Detecting graphics...")
@@ -357,16 +384,6 @@ class HardwareDetector:
         if gpu_lines:
             self.raw_data['gpus'] = gpu_lines
 
-            # Determine if integrated or dedicated
-            has_nvidia = any('nvidia' in line.lower() for line in gpu_lines)
-            has_amd_discrete = any('amd' in line.lower() and 'radeon' in line.lower() for line in gpu_lines)
-            has_intel = any('intel' in line.lower() for line in gpu_lines)
-
-            if has_nvidia or has_amd_discrete:
-                self.raw_data['gpu_type'] = "Dedicated or Discrete GPU"
-            elif has_intel:
-                self.raw_data['gpu_type'] = "Integrated GPU"
-
             # Extract GPU models separately for integrated and dedicated
             for gpu_line in gpu_lines:
                 gpu_line_lower = gpu_line.lower()
@@ -378,36 +395,41 @@ class HardwareDetector:
 
                 gpu_text = gpu_match.group(1).strip()
 
-                # Try to extract from brackets first (cleaner name)
-                bracket_match = re.search(r'\[(.+?)\]', gpu_text)
+                # Prefer the bracketed model name; gpu_text already carries the vendor, so the
+                # prefix is only added when the bracket replaced it.
+                bracket = self.model_bracket(gpu_text)
 
-                # Detect integrated GPU (Intel or AMD APU with Vega)
+                # Detect integrated GPU (Intel, or an AMD APU)
                 if 'intel' in gpu_line_lower:
-                    if bracket_match and bracket_match.group(1).strip():
-                        self.raw_data['integrated_gpu_model'] = f"Intel {bracket_match.group(1)}"
-                    else:
-                        self.raw_data['integrated_gpu_model'] = gpu_text
+                    self.raw_data['integrated_gpu_model'] = f"Intel {bracket}" if bracket else gpu_text
 
-                # Detect AMD integrated GPU (Vega APU)
-                elif 'amd' in gpu_line_lower and 'vega' in gpu_line_lower:
-                    if bracket_match and bracket_match.group(1).strip():
-                        self.raw_data['integrated_gpu_model'] = f"AMD {bracket_match.group(1)}"
-                    else:
-                        self.raw_data['integrated_gpu_model'] = gpu_text
+                # AMD integrated: any Radeon that is not a discrete card. Was previously gated on
+                # "vega", which missed the R-series APUs entirely.
+                elif 'amd' in gpu_line_lower and 'radeon' in gpu_line_lower \
+                        and not self.is_amd_discrete(gpu_line_lower):
+                    self.raw_data['integrated_gpu_model'] = f"AMD {bracket}" if bracket else gpu_text
 
                 # Detect NVIDIA dedicated GPU
                 elif 'nvidia' in gpu_line_lower:
-                    if bracket_match and bracket_match.group(1).strip():
-                        self.raw_data['dedicated_gpu_model'] = f"NVIDIA {bracket_match.group(1)}"
-                    else:
-                        self.raw_data['dedicated_gpu_model'] = gpu_text
+                    self.raw_data['dedicated_gpu_model'] = f"NVIDIA {bracket}" if bracket else gpu_text
 
-                # Detect AMD dedicated GPU (discrete Radeon with RX)
-                elif 'amd' in gpu_line_lower and 'radeon' in gpu_line_lower and 'rx' in gpu_line_lower:
-                    if bracket_match and bracket_match.group(1).strip():
-                        self.raw_data['dedicated_gpu_model'] = f"AMD {bracket_match.group(1)}"
-                    else:
-                        self.raw_data['dedicated_gpu_model'] = gpu_text
+                # Detect AMD dedicated GPU (discrete Radeon, never an APU)
+                elif 'amd' in gpu_line_lower and self.is_amd_discrete(gpu_line_lower):
+                    self.raw_data['dedicated_gpu_model'] = f"AMD {bracket}" if bracket else gpu_text
+
+            # Derived from what was actually extracted, rather than a separate scan that counted
+            # any Radeon as discrete. Informational only for the technician's summary and the
+            # legacy field in the payload: the backend maps its own BestBuy value from the two
+            # model strings, so this must not be treated as authoritative.
+            dedicated = self.raw_data.get('dedicated_gpu_model')
+            integrated = self.raw_data.get('integrated_gpu_model')
+            if dedicated:
+                self.raw_data['gpu_type'] = "Dedicated GPU"
+            elif integrated:
+                self.raw_data['gpu_type'] = "Integrated GPU"
+            # Never assigned before, so the summary read "Graphics: N/A" on every scan.
+            if dedicated or integrated:
+                self.raw_data['gpu_model'] = dedicated or integrated
 
     def detect_storage(self):
         """Detect storage information"""
